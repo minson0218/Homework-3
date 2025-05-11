@@ -1,6 +1,7 @@
 """
 Package Import
 """
+
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -33,8 +34,8 @@ assets = [
 # Initialize Bdf and df
 Bdf = pd.DataFrame()
 for asset in assets:
-    raw = yf.download(asset, start="2012-01-01", end="2024-04-01", auto_adjust = False)
-    Bdf[asset] = raw['Adj Close']
+    raw = yf.download(asset, start="2012-01-01", end="2024-04-01", auto_adjust=False)
+    Bdf[asset] = raw["Adj Close"]
 
 df = Bdf.loc["2019-01-01":"2024-04-01"]
 
@@ -50,7 +51,7 @@ class MyPortfolio:
     NOTE: You can modify the initialization function
     """
 
-    def __init__(self, price, exclude, lookback=50, gamma=0):
+    def __init__(self, price, exclude, lookback=50, gamma=1):
         self.price = price
         self.returns = price.pct_change().fillna(0)
         self.exclude = exclude
@@ -69,6 +70,22 @@ class MyPortfolio:
         """
         TODO: Complete Task 4 Below
         """
+        # Equal-weight ex-SPY with 200-day moving average filter
+        ma_window = 200
+        min_assets = 3
+        n = len(self.price)
+        for i in range(ma_window, n):
+            # 200-day moving average filter
+            ma = self.price.iloc[i - ma_window : i].mean()
+            current = self.price.iloc[i - 1][assets]
+            selected = [a for a in assets if current[a] > ma[a]]
+            if len(selected) < min_assets:
+                selected = list(assets)
+            weight = 1.0 / len(selected)
+            row = {a: (weight if a in selected else 0.0) for a in assets}
+            row[self.exclude] = 0.0
+            self.portfolio_weights.iloc[i] = pd.Series(row)
+        self.portfolio_weights.iloc[:ma_window] = 0
 
         """
         TODO: Complete Task 4 Above

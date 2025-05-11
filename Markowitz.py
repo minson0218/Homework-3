@@ -1,6 +1,7 @@
 """
 Package Import
 """
+
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -36,8 +37,8 @@ end = "2024-04-01"
 # Initialize df and df_returns
 df = pd.DataFrame()
 for asset in assets:
-    raw = yf.download(asset, start=start, end=end, auto_adjust = False)
-    df[asset] = raw['Adj Close']
+    raw = yf.download(asset, start=start, end=end, auto_adjust=False)
+    df[asset] = raw["Adj Close"]
 
 df_returns = df.pct_change().fillna(0)
 
@@ -61,7 +62,12 @@ class EqualWeightPortfolio:
         """
         TODO: Complete Task 1 Below
         """
-
+        assets_list = df.columns[df.columns != self.exclude]
+        w = 1.0 / len(assets_list)
+        weights = pd.DataFrame(0.0, index=df.index, columns=df.columns)
+        for asset in assets_list:
+            weights[asset] = w
+        self.portfolio_weights = weights
         """
         TODO: Complete Task 1 Above
         """
@@ -112,7 +118,15 @@ class RiskParityPortfolio:
         """
         TODO: Complete Task 2 Below
         """
-
+        assets_list = df.columns[df.columns != self.exclude]
+        weights = pd.DataFrame(0.0, index=df.index, columns=df.columns)
+        for i in range(self.lookback + 1, len(df_returns)):
+            R_n = df_returns[assets_list].iloc[i - self.lookback : i]
+            vol = R_n.std()
+            inv_vol = 1.0 / vol
+            w = inv_vol / inv_vol.sum()
+            weights.loc[df_returns.index[i], assets_list] = w.values
+        self.portfolio_weights = weights
         """
         TODO: Complete Task 2 Above
         """
@@ -184,12 +198,11 @@ class MeanVariancePortfolio:
                 """
                 TODO: Complete Task 3 Below
                 """
-
-                # Sample Code: Initialize Decision w and the Objective
-                # NOTE: You can modify the following code
-                w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
-
+                w = model.addMVar(shape=n, lb=0.0, ub=1.0, name="w")
+                model.addConstr(w.sum() == 1)
+                model.setObjective(
+                    mu @ w - (gamma / 2.0) * w @ Sigma @ w, gp.GRB.MAXIMIZE
+                )
                 """
                 TODO: Complete Task 3 Above
                 """
