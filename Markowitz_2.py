@@ -70,23 +70,26 @@ class MyPortfolio:
         """
         TODO: Complete Task 4 Below
         """
-        # Equal-weight ex-SPY with 200-day moving average filter
-        ma_window = 200
-        min_assets = 3
-        n = len(self.price)
-        for i in range(ma_window, n):
-            # 200-day moving average filter
-            ma = self.price.iloc[i - ma_window : i].mean()
-            current = self.price.iloc[i - 1][assets]
-            selected = [a for a in assets if current[a] > ma[a]]
-            if len(selected) < min_assets:
-                selected = list(assets)
-            weight = 1.0 / len(selected)
-            row = {a: (weight if a in selected else 0.0) for a in assets}
-            row[self.exclude] = 0.0
-            self.portfolio_weights.iloc[i] = pd.Series(row)
-        self.portfolio_weights.iloc[:ma_window] = 0
+        self.returns = self.price.pct_change()
+        self.lookback = 10
+        asset_prices = self.price[assets]
 
+        def _calculate_zscore(data):
+            ma = data.rolling(self.lookback).mean()
+            std = data.rolling(self.lookback).std()
+            return (data - ma) / (std * data)
+
+        signals = _calculate_zscore(asset_prices)
+        ranked_signals = signals.rank(axis=1, ascending=True)
+        threshold = int(0.85 * len(assets))
+        ranked_signals[ranked_signals < threshold] = 0
+
+        position_sizes = ranked_signals.copy()
+        row_sums = position_sizes.sum(axis=1)
+        position_sizes = position_sizes.div(row_sums, axis=0)
+
+        final_weights = position_sizes.shift(1).fillna(0)
+        self.portfolio_weights[assets] = final_weights
         """
         TODO: Complete Task 4 Above
         """
